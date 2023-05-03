@@ -1,0 +1,1 @@
+All have 30 nm loc_uncertainty, and 0.03 second bleach half-time.

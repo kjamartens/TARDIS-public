@@ -1,0 +1,12 @@
+function tableout = maketable(fittingparameters,fixedparameters,indexfittingparameters,numberofspecies)
+totalparam = fixedparameters;
+totalparam(indexfittingparameters) = fittingparameters;
+totalparam = totalparam(1:numberofspecies,:);
+species = 1:length(totalparam(:,1));
+species = species';
+fraction = totalparam(:,1);
+fraction(1) = 1-sum(fraction(2:end));
+koff = totalparam(:,2);
+kon = totalparam(:,3);
+Dfree = totalparam(:,4);
+tableout = table(species,fraction,koff,kon,Dfree);
