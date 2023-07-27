@@ -5,7 +5,25 @@
 %Expected input:
 %poslist: frame-x-y-z list (m)
 function [parameters, parametersCI, paramEsts, HOfitCI, tottime, time, bgarr, truthoffsetpartial, Visualisation_HO_outputCell,Visualisation_FF_outputCell,anaDDAvisInfoHO,anaDDAvisInfoFF,JDonlydata,SwiftParameters] = URDA_HO_FF_function(poslist,settingsTARDIS)
-
+%% Check for required toolboxes
+%Get the toolbox info
+MATLABinfo = ver;
+%Find whether the required toolboxes are installed, and throw an error
+%otherwise
+if ~any(strcmp({MATLABinfo.Name}, 'Curve Fitting Toolbox'))
+    warning('Curve Fitting Toolbox not found!');
+    error('Curve Fitting Toolbox not installed! Install it via Home - Add-Ons, or check mathworks.com/products/curvefitting.html')
+end
+if ~any(strcmp({MATLABinfo.Name}, 'Signal Processing Toolbox'))
+    warning('Signal Processing Toolbox not found!');
+    error('Signal Processing Toolbox not installed! Install it via Home - Add-Ons, or check mathworks.com/products/signal.html')
+end
+if ~any(strcmp({MATLABinfo.Name}, 'Optimization Toolbox'))
+    warning('Optimization Toolbox not found!');
+    error('Optimization Toolbox not installed! Install it via Home - Add-Ons, or check mathworks.com/products/optimization.html')
+end
+clear MATLABinfo
+%%
 tic;
 %Sort poslist on frame
 poslist = sortrows(poslist,1);
