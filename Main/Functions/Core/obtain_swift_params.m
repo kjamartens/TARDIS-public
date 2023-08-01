@@ -12,8 +12,8 @@
 % JDarrSignalCell = all linkages = TP+FP
 % poslist = used for density
 
-function swift_params = obtain_swift_params(parameters,JDarrSignalCell,poslist,maxdist,frame_dist_BG,settingsTARDIS,user_provided_noise_dens,BGarrtotsize,callfromUI)
-    dispUIorCommandWindow('Starting obtaining swift parameters....',callfromUI);
+function [swift_params, MHTparams] = obtain_swift_params(parameters,JDarrSignalCell,poslist,maxdist,frame_dist_BG,settingsTARDIS,user_provided_noise_dens,BGarrtotsize,JDonlydata,callfromUI)
+    dispUIorCommandWindow('Starting obtaining swift/MHT parameters....',callfromUI);
     %% Proper density calculation
     user_provided_noise_dens = settingsTARDIS.noiseDensity;
     dens_noise = user_provided_noise_dens; %in loc/um2/frame %
@@ -36,7 +36,7 @@ function swift_params = obtain_swift_params(parameters,JDarrSignalCell,poslist,m
     
     %Get calculated value of spurious noise density out - from full FoV as the
     %noise is spread out over this whole FoV.
-    pc1 = 0;
+    pc1 = 1.5;
     pc2 = 100-pc1;
     posxy0p = prctile(pos(:,2),pc1);
     posxy0p2 = prctile(pos(:,2),pc2);
@@ -59,6 +59,13 @@ function swift_params = obtain_swift_params(parameters,JDarrSignalCell,poslist,m
     %This is corrected for the TP density, so that we have the number of 
     % linkages at dt1, no blinking assumed, per frame, assuming a density (TP) of 1 loc/um2/frame
     TPlinkages_noblink_perframe_dens1 = TPlinkages_noblink_perframe/dens_signal;
+    %% total localisations true/false per frame
+    %This is for MHT
+    %Get the FoV size
+    FoVArea = ((posxy0p2-posxy0p)*(posxy0p4-posxy0p3))*1e12; %in um2
+    totLoc_signal = dens_signal*FoVArea;
+    totLoc_noise = dens_noise*FoVArea;
+    totTrack_signal = totLoc_signal/nr_jumps_per_track;
     %%
     %Get the information of how many linkages we have at different dts
     %First of just all the dt-bins that we want
@@ -115,5 +122,19 @@ function swift_params = obtain_swift_params(parameters,JDarrSignalCell,poslist,m
     found_blink_ratio = 1-dt1_difference_value_gotten/TPlinkages_noblink_perframe_dens1;
     %%
     % Put in a total array - for now only blinking ratio
-    swift_params = max(0,found_blink_ratio);
+    swift_params.p_blink = min(.95,max(0,found_blink_ratio));
+    swift_params.p_reappear = 1-swift_params.p_blink;
+    swift_params.p_bleach = 1/bleach_time_half;
+    swift_params.exp_displacement = 1e9*median(JDonlydata{1}{1});
+    swift_params.exp_noise_rate = dens_noise/(dens_noise+dens_signal)*100;
+    swift_params.precision = settingsTARDIS.loc_unc*1e9;
+
+
+    MHTparams.detectionRate = 1-swift_params.p_blink;
+    MHTparams.trackLength=nr_jumps_per_track;
+    MHTparams.medianJumpDistance = median(JDonlydata{1}{1});
+    MHTparams.totLocNoise_perFrame = totLoc_noise;
+    MHTparams.totTrackSignal_perFrame = totTrack_signal;
+    
+%     swift_params = min(.95,max(0,found_blink_ratio));
 end 

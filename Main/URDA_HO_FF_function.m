@@ -4,7 +4,7 @@
 
 %Expected input:
 %poslist: frame-x-y-z list (m)
-function [parameters, parametersCI, paramEsts, HOfitCI, tottime, time, bgarr, truthoffsetpartial, Visualisation_HO_outputCell,Visualisation_FF_outputCell,anaDDAvisInfoHO,anaDDAvisInfoFF,JDonlydata,SwiftParameters] = URDA_HO_FF_function(poslist,settingsTARDIS)
+function [parameters, parametersCI, paramEsts, HOfitCI, tottime, time, bgarr, truthoffsetpartial, Visualisation_HO_outputCell,Visualisation_FF_outputCell,anaDDAvisInfoHO,anaDDAvisInfoFF,JDonlydata,SwiftParameters,MHTparameters] = URDA_HO_FF_function(poslist,settingsTARDIS)
 %% Check for required toolboxes
 %Get the toolbox info
 MATLABinfo = ver;
@@ -69,6 +69,7 @@ AutoChoosePop = 0; %Automatically choose between 1, 2, or 3 (not yet implemented
 stroboFrameTime = 0; %Stroboscopic frame time. Set to -1 for full-frame, or to a value in seconds.
 freefit_locunc = 0; %EXPERIMENTAL! Only implemented in log_BG subtracting. Set to 1 to fit the loc unc rather than provide. If this is 1, then the provided loc unc will be used as initial guess
 StoreSWIFTparameters = 0; %Store SWIFT JSON as output. Needs to be called from UI for correct folder storage.
+StoreMHTparameters = 0; %Store MHT (multiple-hypothesis-tracking) .xml as output. Needs to be called from UI for correct folder storage.
 noiseDensity = 0; %Value that is required for extracting swift params. Should be the density of the noise in loc/um2/frame
 
 verboseMLEIntFit = verboseReal;
@@ -79,7 +80,7 @@ variablearr = {'frame_dist_BG','startpointBG','maxdist','bgbinningnr','dt_arr',.
     'debug','verboseMLEIntFit','verboseReal','visualisationMLEIntFit','performestimationfit','performsecondfit','populations',...
     'start_1pop','lb_1pop','ub_1pop','start_2pop','lb_2pop','ub_2pop','start_3pop','lb_3pop','ub_3pop',...
     'start_aDDA','callfromUI','createJDsonly','fitWithBleach','fixRatios2pop','AutoChoosePop','stroboFrameTime','freefit_locunc',...
-    'StoreSWIFTparameters','noiseDensity'};
+    'StoreSWIFTparameters','StoreMHTparameters','noiseDensity'};
 
 %Check for every variable if it's in the settingsTARDIS struct. If not, an
 %warning is given and the pre-set value is used.
@@ -104,6 +105,8 @@ end
 %Empty output because it might crash
 anaDDAvisInfoHO = [];
 anaDDAvisInfoFF = [];
+SwiftParameters = '';
+MHTparameters = '';
 
 %Make callfromUI empty if zero inputted for later easy-code
 if callfromUI == 0
@@ -201,19 +204,12 @@ if createJDsonly
 
 %     user_provided_noise_dens = 0.064;
     parameters = bleach_time_half; %This is the only parameter that obtain_swift_params looks for :)
-    %Do swift param getting
-%     keyboard
-    if settingsTARDIS.StoreSWIFTparameters
-        SwiftParameters.blink_r = obtain_swift_params(parameters,JDarrSignalCell,poslist,maxdist,frame_dist_BG,settingsTARDIS,noiseDensity,BGarrtotsize,callfromUI);
-        dispUIorCommandWindow(['Found blink ratio for swift: ' num2str(SwiftParameters.blink_r)],callfromUI);
-        
-        %FOR NOW: store value as .json with the correct name/folder
-%         js = jsonencode(swiftJSON,"ConvertInfAndNaN",false,'PrettyPrint',true);
-%         savename = settingsTARDIS.callfromUI.DataLocationEditField.Value;
-%         save([savename(1:end-4) '_swiftparams.json'],'js');
-%         fid=fopen([savename(1:end-4) '_swiftparams.json'],'w');
-%         fprintf(fid, js);
-%         fclose(fid);
+    if settingsTARDIS.StoreMHTparameters || settingsTARDIS.StoreSWIFTparameters
+        [SwiftParameters,MHTparameters] = obtain_swift_params(parameters,JDarrSignalCell,poslist,maxdist,frame_dist_BG,settingsTARDIS,noiseDensity,BGarrtotsize,JDonlydata,callfromUI);
+    
+        if settingsTARDIS.StoreSWIFTparameters
+            dispUIorCommandWindow(['Found blink ratio for swift: ' num2str(SwiftParameters.p_blink)],callfromUI);
+        end
     end
 %     keyboard
     %Return variables so function doesn't crash
@@ -872,12 +868,6 @@ if performsecondfit
         pci = norminv(repmat(probs,1,numel(phat)),[phat; phat],[se; se]);
         parametersCI = pci;
     end
-    %% Get swift params out
-%     keyboard
-%     density_of_noise = 0;%0.0344;
-    SwiftParameters.blink_r = obtain_swift_params(parameters,JDarrSignalCell,poslist,maxdist,frame_dist_BG,settingsTARDIS,noiseDensity,BGarrtotsize,callfromUI);
-    dispUIorCommandWindow(['Found blink ratio for swift: ' num2str(SwiftParameters.blink_r)],callfromUI);
-%     keyboard
     %% Visualise results from MLE
     if populations > 0
         figurebinnr = settingsTARDIS.bgbinningnr;
