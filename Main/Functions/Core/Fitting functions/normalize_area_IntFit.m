@@ -24,7 +24,7 @@
 %---------------------------------------------------------
 % Koen J.A. Martens, 2022
 %---------------------------------------------------------
-function [output] = normalize_area_IntFit(xdata,input,functionp,D,loc_unc,f,BGcurve_interp,strobo_frame_time,frame_time)
+function [output] = normalize_area_IntFit(xdata,input,functionp,D,loc_unc,params,BGcurve_interp,strobo_frame_time,frame_time)
 %Make the bins
 area_calc_bin_size = (max(xdata)-min(xdata))/1000; 
 %Specifiy x-range it should be checked for
@@ -38,6 +38,8 @@ if strcmp(functionp,'pdfBGFunction')
     mean_y_pos_bin = pdfBGFunction(mean_x_pos_bin,BGcurve_interp);
 elseif strcmp(functionp,'pdfSinglePopFunction')
     mean_y_pos_bin = pdfSinglePopFunction(mean_x_pos_bin,D,0,loc_unc,strobo_frame_time,frame_time);
+else
+    mean_y_pos_bin = eval([functionp '(mean_x_pos_bin,params)']);%,D,0,loc_unc,strobo_frame_time,frame_time);
 end
 %Get total area
 area_bin = mean_y_pos_bin*area_calc_bin_size;

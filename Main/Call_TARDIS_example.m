@@ -3,8 +3,7 @@ clear all;
 close all;
 %% Load data
 %Loaded data is a 'pos' array with frame, x, y position (x, y, in meter)
-dataFolder = '\\ifmb-nas\ag endesfelder\Data\Koen\Scientific\MATLAB\GITHUB\LongLivedPhotophysics\SimulatedTracks\New_TARDISimpl\';
-load([dataFolder '\Single_Population_1um2s_lowDensity.mat']);
+load('.\Example_data\Single_Population_1um2s_lowDensity.mat','pos');
 
 %% Initialise settings
 settingsTARDIS = GenerateTARDISsettings();
@@ -12,7 +11,7 @@ settingsTARDIS = GenerateTARDISsettings();
 settingsTARDIS.maxdist = 5e-6; %Maximum dist (m)
 settingsTARDIS.startpointBG = 3.2e-6;
 settingsTARDIS.populations = 1; %number of populations to fit
-settingsTARDIS.loc_unc = 40*1e-9; %Localization uncertainty in m
+settingsTARDIS.loc_unc = 30*1e-9; %Localization uncertainty in m
 settingsTARDIS.fitWithBleach = 1; %Bleach fit or not
 settingsTARDIS.performestimationfit = 0; %Estimation fit or not
 settingsTARDIS.linorlogvis = 'lin'; %Linear or logartihmic fit+visualisation
@@ -41,13 +40,19 @@ disp(parameters);
 % Visualisation_FF_outputCell structure like this:
 Visualisation_FF([],[],Visualisation_FF_outputCell);
 
+%% Visualise the JD histogram visualisation
+%Create JD histogram visualisation
+%Note that this basically just histograms the info in JDonlydata
+extrainfo.Data.settingsURDA = settingsTARDIS;
+Visualisation_JDs('','',JDonlydata{1},extrainfo);
+
 %% Run TARDIS GUI
 %Alternatively, you can open the TARDIS GUI with this:
 TARDIS_app;
 
 %% You could also re-create output images with the stored MAT file like this:
-
+%The TARDIS APP stores .mat files as output in a TARDIS_Results Folder.
+%Load this data first!
 %First we load the .mat TARDIS GUI output
-load([dataFolder '\TARDIS_Results\' '003_1k_unbound_TARDISresult.mat']);
 %And we plot image like this:
 Visualisation_FF([],[],appinfo.Visualisation_FF_outputCell);

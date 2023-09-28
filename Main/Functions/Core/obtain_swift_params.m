@@ -133,8 +133,6 @@ function [swift_params, MHTparams] = obtain_swift_params(parameters,JDarrSignalC
     MHTparams.detectionRate = 1-swift_params.p_blink;
     MHTparams.trackLength=nr_jumps_per_track;
     MHTparams.medianJumpDistance = median(JDonlydata{1}{1});
-    MHTparams.totLocNoise_perFrame = totLoc_noise;
+    MHTparams.totLocNoise_perFrame = round(totLoc_noise);
     MHTparams.totTrackSignal_perFrame = totTrack_signal;
-    
-%     swift_params = min(.95,max(0,found_blink_ratio));
 end 

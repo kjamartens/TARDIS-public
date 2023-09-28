@@ -27,6 +27,7 @@ TARDISsettings.start_aDDA = '[10-80 10-80 0.1-10]'; %- %Startpoint of anaDDAfit
 TARDISsettings.lb_adda = '[1e-5 1e-5 1e-5]';
 TARDISsettings.ub_adda = '[1e4 1e4 1e2]';
 TARDISsettings.stroboFrameTime = 0; %Stroboscopic illumination in seconds. Set to 0 for no strobo-illumination (i.e. ignored), -1 to full-frame-illumination, or a specific time.
+TARDISsettings.AlternativeLookupPosList = 0; %Alternative poslist if you want a different look-up, added in v1.10
 TARDISsettings.freefit_locunc = 0; %EXPERIMENTAL free fitting of localization uncertainty
 
 % 'Low importance' settings
@@ -37,6 +38,10 @@ TARDISsettings.minlogpoint = 10^(-8.5); %starting point if using log BG subtract
 TARDISsettings.norm_bins = 50000; %used to be 10000 %Nr of bins used for normalization - everything > 1000 seems fine
 TARDISsettings.createJDsonly = 0; %Only create a JD list rather than try to fit something
 TARDISsettings.noiseDensity = 0; %density (loc/um2) of noisy (i.e. non-track) particles. Used for determining blink chance
+TARDISsettings.customPDF = 0; %Running a custom PDF?
+TARDISsettings.customPDF_start = []; %Running a custom PDF?
+TARDISsettings.customPDF_upper = []; %Running a custom PDF?
+TARDISsettings.customPDF_lower = []; %Running a custom PDF?
 
 % 'Verbose'-related settings
 TARDISsettings.verbose = 1; 
@@ -46,6 +51,7 @@ TARDISsettings.vis = TARDISsettings.debug; %Visibility of BG subtracting results
 TARDISsettings.fitvisHO = TARDISsettings.debug; %Visibility of fit results
 TARDISsettings.visualisationMLEIntFit = 1; %Visualisation of MLE fit at the end
 TARDISsettings.StoreSWIFTparameters = 0; %Store a JSON for SWIFT settings
+TARDISsettings.StoreMHTparameters = 0; %Storing MHT parameters
 TARDISsettings.verboseMLEIntFit = 0;
 TARDISsettings.callfromUI = 0;
 

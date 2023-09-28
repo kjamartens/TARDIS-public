@@ -1,0 +1,5 @@
+#Ignore .asv files
+*.asv
+
+#Ignore builds
+Releases_notGITHUB/

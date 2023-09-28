@@ -29,11 +29,7 @@ end
 %Following Berglund 2010
 % Add loc uncertainty and motion blur coefficient to D value
 Dcorr = 4*D*frame_time+2*2*loc_unc^2+4*D*(strobo_frame_time/frame_time)*(1/6)*frame_time;
-%Let's see if I add FoV size
-FoVsize = 55e-6;
-% Dcorr = Dcorr*(1-(4*((4*D*frame_time)/FoVsize)-((4*D*frame_time)^2)/(FoVsize^2)));
-% disp('Doing FoV-shenanigans')
-% keyboard
+
 % Calculate likelihood
 output = xdata.*exp(-(xdata.^2)./(Dcorr))+offset./xdata;
 end

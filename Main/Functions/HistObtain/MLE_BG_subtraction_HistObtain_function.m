@@ -1,4 +1,4 @@
-function [histInfo,time,BGcurve_interp,bestratio,JDarrBG,JDarrSignalCell,signalCurve_interp,stepsizearraytrue,BGarrtotsize] = MLE_BG_subtraction_HistObtain_function(poslist,frame_dist_BG,maxdist,frame_dist_Hist_arr,bgbinningnr,startpointBG,linorlogBGsubtract,minlogpoint,visualisation,verbose,callfromUI)
+function [histInfo,time,BGcurve_interp,bestratio,JDarrBG,JDarrSignalCell,signalCurve_interp,stepsizearraytrue,BGarrtotsize] = MLE_BG_subtraction_HistObtain_function(poslist,frame_dist_BG,maxdist,frame_dist_Hist_arr,bgbinningnr,startpointBG,linorlogBGsubtract,minlogpoint,visualisation,verbose,callfromUI,varargin)
 %% Function to obtain information for histograms based on TARDIS
 % Required inputs:
 % poslist           1-x-4 Array with frame-x-y-z position (positions in meters)
@@ -25,13 +25,21 @@ tic
 mindist_onlynoise = startpointBG;
 maxdist_onlynoise = maxdist;
 
+%Parse optional inputs
+p = inputParser;
+%Default parameter(s)
+addParameter(p, 'AlternativeLookupPosList', 0);
+% Parse the input arguments
+parse(p, varargin{:});
+%Get the AlternativeLookupPosList
+AlternativeLookupPosList = p.Results.AlternativeLookupPosList;
+
 %% Obtaining BG information
 if verbose; dispUIorCommandWindow('Starting BG obtain',callfromUI); end
 %Doing multiple frame_dist_BG if wanted
 BGarrtotsize = [];
 for k = 1:size(frame_dist_BG,2)
-    %Terrible slow implementation atm, but who cares
-    BGarr_maxdist_singledt{k} = JD_Rel(poslist,frame_dist_BG(k),maxdist,0); %Provides the Background relative JD array
+    BGarr_maxdist_singledt{k} = JD_Rel(poslist,frame_dist_BG(k),maxdist,0,'AlternativeLookupPosList',AlternativeLookupPosList); %Provides the Background relative JD array
     BGarr_maxdist_singledt{k}(BGarr_maxdist_singledt{k}==0) = []; %Remove zeros from the BG array (only happens if frame_dist_BG = 0, and the localization JD is calculated with respect to themselves)
     % NOTE: I THINK THIS LINE CAN BE SAFELY REMOVED! BGarr_maxdist = BGarr(BGarr<=maxdist); %limit BGarr to the maximum distance specified
     BGarrtotsize(k) = size(BGarr_maxdist_singledt{k},1);
@@ -55,7 +63,7 @@ inputarr = []; %iniate an empty array
 tempsteparr = cell(1,size(frame_dist_Hist_arr,1));
 size_dt = zeros(size(frame_dist_Hist_arr,1),1);
 for dt = frame_dist_Hist_arr %Loop over all dt bins wanted
-    tempsteparr{dt} = JD_Rel(poslist(:,1:3),dt,maxdist,0); %Get the relative JDs for every dt bin
+    tempsteparr{dt} = JD_Rel(poslist(:,1:3),dt,maxdist,0,'AlternativeLookupPosList',AlternativeLookupPosList); %Get the relative JDs for every dt bin
     inputarr = [inputarr; tempsteparr{dt}]; %Put in a large array combining all dt bins for later use
     size_dt(dt) = size(tempsteparr{dt},1); %Get the number of JD values for every dt bin
     

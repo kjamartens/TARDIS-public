@@ -71,8 +71,12 @@ freefit_locunc = 0; %EXPERIMENTAL! Only implemented in log_BG subtracting. Set t
 StoreSWIFTparameters = 0; %Store SWIFT JSON as output. Needs to be called from UI for correct folder storage.
 StoreMHTparameters = 0; %Store MHT (multiple-hypothesis-tracking) .xml as output. Needs to be called from UI for correct folder storage.
 noiseDensity = 0; %Value that is required for extracting swift params. Should be the density of the noise in loc/um2/frame
-
+customPDF = 0; %Information about a custom PDF, or 0 if none.
+customPDF_start = []; %Start, upper, lower bounds of a custom PDF
+customPDF_upper = [];
+customPDF_lower = [];
 verboseMLEIntFit = verboseReal;
+AlternativeLookupPosList = 0; %Have a N-by-4 alternative lookup list (similar width as poslist) if you want to have the 'lookup' values different than the 'start' values. Make 0 if this isn't applicable.
 
 %String list of all variables
 variablearr = {'frame_dist_BG','startpointBG','maxdist','bgbinningnr','dt_arr',...
@@ -80,7 +84,7 @@ variablearr = {'frame_dist_BG','startpointBG','maxdist','bgbinningnr','dt_arr',.
     'debug','verboseMLEIntFit','verboseReal','visualisationMLEIntFit','performestimationfit','performsecondfit','populations',...
     'start_1pop','lb_1pop','ub_1pop','start_2pop','lb_2pop','ub_2pop','start_3pop','lb_3pop','ub_3pop',...
     'start_aDDA','callfromUI','createJDsonly','fitWithBleach','fixRatios2pop','AutoChoosePop','stroboFrameTime','freefit_locunc',...
-    'StoreSWIFTparameters','StoreMHTparameters','noiseDensity'};
+    'StoreSWIFTparameters','StoreMHTparameters','noiseDensity','customPDF','customPDF_start','customPDF_upper','customPDF_lower','AlternativeLookupPosList'};
 
 %Check for every variable if it's in the settingsTARDIS struct. If not, an
 %warning is given and the pre-set value is used.
@@ -146,7 +150,7 @@ ub_aDDA = eval(settingsTARDIS.ub_adda);
 % frame_dist_BG=0
 try
     [histInfo,time,bgarr,bgratios,JDarrBG,JDarrSignalCell,signalCurve_interp,stepsizearraytrue,BGarrtotsize] = ...
-        MLE_BG_subtraction_HistObtain_function(poslist,frame_dist_BG,maxdist,dt_arr,bgbinningnr,startpointBG,linorlogBGsubtract,minlogpoint,0,verbose,callfromUI);%,poslistunordered);
+        MLE_BG_subtraction_HistObtain_function(poslist,frame_dist_BG,maxdist,dt_arr,bgbinningnr,startpointBG,linorlogBGsubtract,minlogpoint,0,verbose,callfromUI,'AlternativeLookupPosList',AlternativeLookupPosList);%,poslistunordered);
 catch
     %     keyboard
 end
@@ -187,31 +191,28 @@ end
 %Get SWIFT parameters via corrected BG ratios
 %Also saves the SWIFT JSON if requested via UI
 % % % SwiftParameters = getCorrectedBGRatio(JDonlydata,JDarrBG,reconstit_arr,JDarrSignalCell,frame_dist_BG,poslist,settingsTARDIS);
+%% Swift and MHT options
+%Check if we want SWIFT output, because we can approximate those
+%try to get the bleach half-time here from bgratios - not perfect
+fo = fitoptions('Method','NonlinearLeastSquares','StartPoint',[4,max(1-bgratios)]);
+ft = fittype('b*2^(-(x+1)/a)','options',fo);
+fitc = fit(dt_arr',[1-bgratios]',ft);
+bleach_time_half = (fitc.a-.5)*settingsTARDIS.frame_time;
+
+dispUIorCommandWindow(['Approximate bleach half-time: ' num2str(bleach_time_half)],callfromUI);
+
+parameters = bleach_time_half; %This is the only parameter that obtain_swift_params looks for :)
+if settingsTARDIS.StoreMHTparameters || settingsTARDIS.StoreSWIFTparameters
+    [SwiftParameters,MHTparameters] = obtain_swift_params(parameters,JDarrSignalCell,poslist,maxdist,frame_dist_BG,settingsTARDIS,noiseDensity,BGarrtotsize,JDonlydata,callfromUI);
+
+    if settingsTARDIS.StoreSWIFTparameters
+        dispUIorCommandWindow(['Found blink ratio for swift: ' num2str(SwiftParameters.p_blink)],callfromUI);
+    end
+end
 %% JD-only creation if wanted
 %If we only want the JD list, we have all the information we want, and we
 %can stop the analysis here.
-% if settingsTARDIS.createJDsonly
 if createJDsonly
-    %Check if we want SWIFT output, because we can approximate those
-    %try to get the bleach half-time here from bgratios - not perfect but
-    %hey
-    fo = fitoptions('Method','NonlinearLeastSquares','StartPoint',[4,max(1-bgratios)]);
-    ft = fittype('b*2^(-(x+1)/a)','options',fo);
-    fitc = fit(dt_arr',[1-bgratios]',ft);
-    bleach_time_half = (fitc.a-.5)*settingsTARDIS.frame_time;
-
-    dispUIorCommandWindow(['Approximate bleach half-time: ' num2str(bleach_time_half)],callfromUI);
-
-%     user_provided_noise_dens = 0.064;
-    parameters = bleach_time_half; %This is the only parameter that obtain_swift_params looks for :)
-    if settingsTARDIS.StoreMHTparameters || settingsTARDIS.StoreSWIFTparameters
-        [SwiftParameters,MHTparameters] = obtain_swift_params(parameters,JDarrSignalCell,poslist,maxdist,frame_dist_BG,settingsTARDIS,noiseDensity,BGarrtotsize,JDonlydata,callfromUI);
-    
-        if settingsTARDIS.StoreSWIFTparameters
-            dispUIorCommandWindow(['Found blink ratio for swift: ' num2str(SwiftParameters.p_blink)],callfromUI);
-        end
-    end
-%     keyboard
     %Return variables so function doesn't crash
     anaDDAvisInfoHO=[];anaDDAvisInfoFF=[];
     time = toc; parameters = [];parametersCI=[];paramEsts=[];HOfitCI=[];tottime = time;Visualisation_FF_outputCell=[];
@@ -696,177 +697,182 @@ if performsecondfit
     %Set the MLEoptions
     mleoptions = TARDIS_setMLEoptions('FF');
     %%
-    if AutoChoosePop
-        if verbose; dispUIorCommandWindow('Starting auto-determination of population nr...',callfromUI);end
-        for nrpopsTesting = 1:2
-            %Get the correct start, lower, upper parameters based on nr of
-            %populations and estimated parameters etc
-            pdfSettings.populations = nrpopsTesting;
-            start = eval(eval(['start_' num2str(nrpopsTesting) 'pop']));
-            eval(['lb = lb_' num2str(nrpopsTesting) 'pop;']);
-            eval(['ub = ub_' num2str(nrpopsTesting) 'pop;']);
-            clear startparam lowerbound upperbound
-            [startparam, lowerbound, upperbound] = get_population_parametersFF(nrpopsTesting,paramEsts,HOfitCI,bgratios,start,lb_1pop,ub_1pop,lb_2pop,ub_2pop,performestimationfit);
-
-            %Change parameters and lower/upper bound in case we fit with bleach
-            %kinetics rather than fully random BG values
-            [startparam, lowerbound, upperbound, fixRatios2pop] = changeFitParams_populations_Bleach(fitWithBleach, nrpopsTesting, startparam, lowerbound, upperbound, fixRatios2pop, dt_arr);
-
-            %Create a customPDF
-            %The used function can be found in the subscript defined here
-            %(pdfBGwithPops), which has a certain set inputs, and the fitting variables
-            %are in the varargin
-
-            if strcmp(linorlogBGsubtract,'lin')
-                pdf_FF_pops = @(xdata,varargin)pdfBGwithPops(xdata,BGcurve_interp,output_BG_alldt,pdfSettings,callfromUI,varargin);
-            else
-                pdf_FF_pops = @(xdata,varargin)pdfBGwithPops_log(xdata,BGcurve_interp,output_BG_alldt,pdfSettings,callfromUI,varargin);
-            end
-            %perform fit
-            mleoptions.Display='off';
-            [parameters_autoPickPops{nrpopsTesting}, parametersCI_autoPickPops{nrpopsTesting}] = mle(inputarr, 'pdf',pdf_FF_pops,'start',startparam,'LowerBound',lowerbound,'UpperBound',upperbound,'Options',mleoptions);
-
-            %Calculate adjusted R2 and store
-            [R2_adj(nrpopsTesting), R2_adj_nopop(nrpopsTesting)] = R2_adj_calculation_TARDIS(maxdist, dt_arr, inputarr, bgbinningnr, JDarrBG, pdfSettings, callfromUI, parameters_autoPickPops{nrpopsTesting});
-
-            if verbose; dispUIorCommandWindow(['Adjusted R-squared of ' num2str(nrpopsTesting) ' population(s): ' sprintf('%.6f', R2_adj(nrpopsTesting))],callfromUI);end
-        end
-        [~,bestNrPops] = max([R2_adj_nopop(1) R2_adj]);
-        bestNrPops = bestNrPops-1; %In case 0-fit is best
-        if verbose; dispUIorCommandWindow(['Best nr of populations: ' num2str(bestNrPops) ' - storing this info... '],callfromUI);end
-        if bestNrPops == 0
-            keyboard %To implement
-        end
-        %          keyboard
-        parameters = parameters_autoPickPops{bestNrPops};
-        parametersCI = parametersCI_autoPickPops{bestNrPops};
-        populations = bestNrPops;
-        pdfSettings.populations = bestNrPops;
-    else %If auto-choose populations isn't used
-        if populations > 0 %if single/multi population fit is wanted
-            %Get the correct start, lower, upper parameters based on nr of
-            %populations and estimated parameters etc
-            [startparam, lowerbound, upperbound] = get_population_parametersFF(populations,paramEsts,HOfitCI,bgratios,start,lb_1pop,ub_1pop,lb_2pop,ub_2pop,performestimationfit);
-
-            %Change parameters and lower/upper bound in case we fit with bleach
-            %kinetics rather than fully random BG values
-            [startparam, lowerbound, upperbound, fixRatios2pop] = changeFitParams_populations_Bleach(fitWithBleach, populations, startparam, lowerbound, upperbound, fixRatios2pop, dt_arr);
-
-            %Create a customPDF
-            %The used function can be found in the subscript defined here
-            %(pdfBGwithPops), which has a certain set inputs, and the fitting variables
-            %are in the varargin
-            if strcmp(linorlogBGsubtract,'lin')
-                pdf_FF_pops = @(xdata,varargin)pdfBGwithPops(xdata,BGcurve_interp,output_BG_alldt,pdfSettings,callfromUI,varargin);
-            else
-                pdf_FF_pops = @(xdata,varargin)pdfBGwithPops_log(xdata,BGcurve_interp,output_BG_alldt,pdfSettings,callfromUI,varargin);
-            end
-            %perform fit
-            mleoptions.Display='off';
-
-            %Change input for freefit loc unc
-            % I leave this implemented, but MLE doesn't seem to work very
-            % good
-            % If freefit_locunc is here, add loc_unc to the fitting params
-            if pdfSettings.freefit_locunc
-                startparam = [startparam loc_unc*1e9];
-                lowerbound = [lowerbound max(loc_unc*1e9-50,5)];
-                upperbound = [upperbound loc_unc*1e9+50];
-            end
-            %Fix small error if startparam is ever same value as
-            %upperbound/lowerbound
-            for i = 1:size(startparam,2)
-                if startparam(i)<=lowerbound(i)
-                    startparam(i) = lowerbound(i)*1.0001;
-                    disp('CHANGED MLE FIT STARTING PARAMS PROBABLY SOMETHING WRONG')
+    if settingsTARDIS.customPDF == 0
+        if AutoChoosePop
+            if verbose; dispUIorCommandWindow('Starting auto-determination of population nr...',callfromUI);end
+            for nrpopsTesting = 1:2
+                %Get the correct start, lower, upper parameters based on nr of
+                %populations and estimated parameters etc
+                pdfSettings.populations = nrpopsTesting;
+                start = eval(eval(['start_' num2str(nrpopsTesting) 'pop']));
+                eval(['lb = lb_' num2str(nrpopsTesting) 'pop;']);
+                eval(['ub = ub_' num2str(nrpopsTesting) 'pop;']);
+                clear startparam lowerbound upperbound
+                [startparam, lowerbound, upperbound] = get_population_parametersFF(nrpopsTesting,paramEsts,HOfitCI,bgratios,start,lb_1pop,ub_1pop,lb_2pop,ub_2pop,performestimationfit);
+    
+                %Change parameters and lower/upper bound in case we fit with bleach
+                %kinetics rather than fully random BG values
+                [startparam, lowerbound, upperbound, fixRatios2pop] = changeFitParams_populations_Bleach(fitWithBleach, nrpopsTesting, startparam, lowerbound, upperbound, fixRatios2pop, dt_arr);
+    
+                %Create a customPDF
+                %The used function can be found in the subscript defined here
+                %(pdfBGwithPops), which has a certain set inputs, and the fitting variables
+                %are in the varargin
+    
+                if strcmp(linorlogBGsubtract,'lin')
+                    pdf_FF_pops = @(xdata,varargin)pdfBGwithPops(xdata,BGcurve_interp,output_BG_alldt,pdfSettings,callfromUI,varargin);
+                else
+                    pdf_FF_pops = @(xdata,varargin)pdfBGwithPops_log(xdata,BGcurve_interp,output_BG_alldt,pdfSettings,callfromUI,varargin);
                 end
-                if startparam(i)>=upperbound(i)
-                    startparam(i) = upperbound(i)*0.9999;
-                    disp('CHANGED MLE FIT STARTING PARAMS PROBABLY SOMETHING WRONG')
-                end
+                %perform fit
+                mleoptions.Display='off';
+                [parameters_autoPickPops{nrpopsTesting}, parametersCI_autoPickPops{nrpopsTesting}] = mle(inputarr, 'pdf',pdf_FF_pops,'start',startparam,'LowerBound',lowerbound,'UpperBound',upperbound,'Options',mleoptions);
+    
+                %Calculate adjusted R2 and store
+                [R2_adj(nrpopsTesting), R2_adj_nopop(nrpopsTesting)] = R2_adj_calculation_TARDIS(maxdist, dt_arr, inputarr, bgbinningnr, JDarrBG, pdfSettings, callfromUI, parameters_autoPickPops{nrpopsTesting});
+    
+                if verbose; dispUIorCommandWindow(['Adjusted R-squared of ' num2str(nrpopsTesting) ' population(s): ' sprintf('%.6f', R2_adj(nrpopsTesting))],callfromUI);end
             end
-            [parameters, parametersCI] = mle(inputarr, 'pdf',pdf_FF_pops,'start',startparam,'LowerBound',lowerbound,'UpperBound',upperbound,'Options',mleoptions);
-            %After fitting, extract the loc_unc again and restore the
-            %parameters to what's expected. Also report on loc_unc
-            %confidence interval, which is normally pretty bad.
-            if pdfSettings.freefit_locunc
+            [~,bestNrPops] = max([R2_adj_nopop(1) R2_adj]);
+            bestNrPops = bestNrPops-1; %In case 0-fit is best
+            if verbose; dispUIorCommandWindow(['Best nr of populations: ' num2str(bestNrPops) ' - storing this info... '],callfromUI);end
+            if bestNrPops == 0
+                keyboard %To implement
+            end
+            %          keyboard
+            parameters = parameters_autoPickPops{bestNrPops};
+            parametersCI = parametersCI_autoPickPops{bestNrPops};
+            populations = bestNrPops;
+            pdfSettings.populations = bestNrPops;
+        else %If auto-choose populations isn't used
+            if populations > 0 %if single/multi population fit is wanted
+                %Get the correct start, lower, upper parameters based on nr of
+                %populations and estimated parameters etc
+                [startparam, lowerbound, upperbound] = get_population_parametersFF(populations,paramEsts,HOfitCI,bgratios,start,lb_1pop,ub_1pop,lb_2pop,ub_2pop,performestimationfit);
+    
+                %Change parameters and lower/upper bound in case we fit with bleach
+                %kinetics rather than fully random BG values
+                [startparam, lowerbound, upperbound, fixRatios2pop] = changeFitParams_populations_Bleach(fitWithBleach, populations, startparam, lowerbound, upperbound, fixRatios2pop, dt_arr);
+    
+                %Create a customPDF
+                %The used function can be found in the subscript defined here
+                %(pdfBGwithPops), which has a certain set inputs, and the fitting variables
+                %are in the varargin
+                if strcmp(linorlogBGsubtract,'lin')
+                    pdf_FF_pops = @(xdata,varargin)pdfBGwithPops(xdata,BGcurve_interp,output_BG_alldt,pdfSettings,callfromUI,varargin);
+                else
+                    pdf_FF_pops = @(xdata,varargin)pdfBGwithPops_log(xdata,BGcurve_interp,output_BG_alldt,pdfSettings,callfromUI,varargin);
+                end
+                %perform fit
+                mleoptions.Display='off';
+    
+                %Change input for freefit loc unc
+                % I leave this implemented, but MLE doesn't seem to work very
+                % good
+                % If freefit_locunc is here, add loc_unc to the fitting params
+                if pdfSettings.freefit_locunc
+                    startparam = [startparam loc_unc*1e9];
+                    lowerbound = [lowerbound max(loc_unc*1e9-50,5)];
+                    upperbound = [upperbound loc_unc*1e9+50];
+                end
+                %Fix small error if startparam is ever same value as
+                %upperbound/lowerbound
+                for i = 1:size(startparam,2)
+                    if startparam(i)<=lowerbound(i)
+                        startparam(i) = lowerbound(i)*1.0001;
+                        disp('CHANGED MLE FIT STARTING PARAMS PROBABLY SOMETHING WRONG')
+                    end
+                    if startparam(i)>=upperbound(i)
+                        startparam(i) = upperbound(i)*0.9999;
+                        disp('CHANGED MLE FIT STARTING PARAMS PROBABLY SOMETHING WRONG')
+                    end
+                end
                 [parameters, parametersCI] = mle(inputarr, 'pdf',pdf_FF_pops,'start',startparam,'LowerBound',lowerbound,'UpperBound',upperbound,'Options',mleoptions);
-                loc_unc = parameters(end)/1e9;
-                disp(['Found Loc unc: ' num2str(loc_unc*1e9) '(' num2str(parametersCI(1,end)) ' - ' num2str(parametersCI(2,end)) ')'])
-                parameters = parameters(1:end-1);
-                parametersCI = parametersCI(:,1:end-1);
-            end
-            %%
-            %Calculate R^2
-            %             [R2_adj, R2_adj_nopop] = R2_adj_calculation_TARDIS(maxdist, dt_arr, inputarr, bgbinningnr, JDarrBG, frame_time, loc_unc, size_dt, populations, fitWithBleach, fixRatios2pop, callfromUI, parameters);
-            [R2_adj, R2_adj_nopop] = R2_adj_calculation_TARDIS(maxdist, dt_arr, inputarr, bgbinningnr, JDarrBG, pdfSettings, callfromUI, parameters);
-            %%
-            if populations == 1
-                if verbose
-                    stringval = sprintf('Second fit (final) completed with DiffCoeff %.2f (%.2f-%.2f).\n',parameters(1),parametersCI(1,1),parametersCI(2,1));
-                    dispUIorCommandWindow(stringval,callfromUI);
+                %After fitting, extract the loc_unc again and restore the
+                %parameters to what's expected. Also report on loc_unc
+                %confidence interval, which is normally pretty bad.
+                if pdfSettings.freefit_locunc
+                    [parameters, parametersCI] = mle(inputarr, 'pdf',pdf_FF_pops,'start',startparam,'LowerBound',lowerbound,'UpperBound',upperbound,'Options',mleoptions);
+                    loc_unc = parameters(end)/1e9;
+                    disp(['Found Loc unc: ' num2str(loc_unc*1e9) '(' num2str(parametersCI(1,end)) ' - ' num2str(parametersCI(2,end)) ')'])
+                    parameters = parameters(1:end-1);
+                    parametersCI = parametersCI(:,1:end-1);
                 end
-            elseif populations == 2
-                if verbose
-                    stringval = sprintf('Second fit (final) completed with DiffCoeffs: %.2f (%.2f-%.2f) and %.2f (%.2f-%.2f) at ratio 1:%.2f (%.2f-%.2f).\n',parameters(1),parametersCI(1,1),parametersCI(2,1),parameters(2),parametersCI(1,2),parametersCI(2,2),parameters(3),parametersCI(1,3),parametersCI(2,3));
-                    dispUIorCommandWindow(stringval,callfromUI);
+                %%
+                %Calculate R^2
+                %             [R2_adj, R2_adj_nopop] = R2_adj_calculation_TARDIS(maxdist, dt_arr, inputarr, bgbinningnr, JDarrBG, frame_time, loc_unc, size_dt, populations, fitWithBleach, fixRatios2pop, callfromUI, parameters);
+                [R2_adj, R2_adj_nopop] = R2_adj_calculation_TARDIS(maxdist, dt_arr, inputarr, bgbinningnr, JDarrBG, pdfSettings, callfromUI, parameters);
+                %%
+                if populations == 1
+                    if verbose
+                        stringval = sprintf('Second fit (final) completed with DiffCoeff %.2f (%.2f-%.2f).\n',parameters(1),parametersCI(1,1),parametersCI(2,1));
+                        dispUIorCommandWindow(stringval,callfromUI);
+                    end
+                elseif populations == 2
+                    if verbose
+                        stringval = sprintf('Second fit (final) completed with DiffCoeffs: %.2f (%.2f-%.2f) and %.2f (%.2f-%.2f) at ratio 1:%.2f (%.2f-%.2f).\n',parameters(1),parametersCI(1,1),parametersCI(2,1),parameters(2),parametersCI(1,2),parametersCI(2,2),parameters(3),parametersCI(1,3),parametersCI(2,3));
+                        dispUIorCommandWindow(stringval,callfromUI);
+                    end
                 end
             end
         end
-    end
-    if AutoChoosePop == 0 && populations == 0 %anaDDA fit - never auto-choose nr of pops
-        %Create anaDDA input - following anaDDA matlab
-        % Fitting function
-%         keyboard
-        %Obtain good BG_alldt_D list (with BG information)
-        for dt = 1:size(size_dt,2)
-            output_BG_alldt_D{dt} = pdfBGFunction_log(inputarr_D,BGcurve_interp_D{dt});
+        if AutoChoosePop == 0 && populations == 0 %anaDDA fit - never auto-choose nr of pops
+            %Create anaDDA input - following anaDDA matlab
+            % Fitting function
+    %         keyboard
+            %Obtain good BG_alldt_D list (with BG information)
+            for dt = 1:size(size_dt,2)
+                output_BG_alldt_D{dt} = pdfBGFunction_log(inputarr_D,BGcurve_interp_D{dt});
+            end
+    
+            % %Set the MLEoptions
+            mleoptions = TARDIS_setMLEoptions('FF');
+    
+            if performestimationfit == 0
+                startparam = [str2num(settingsTARDIS.start_aDDA) fliplr(bgratios)]';
+                paramEsts = [0 0 0];
+                HOfitCI = [0 0 0];
+            else
+                startparam = [paramEsts(1:3)' fliplr(bgratios)]';
+            end
+            lowerbound = [lb_aDDA ones(1,max(dt_arr))*0]';
+            upperbound = [ub_aDDA ones(1,max(dt_arr))*1]';
+    
+            %Create anaDDA custom PDF
+            pdf_FF_aDDA = @(Dlistdata,varargin) pdfAnaDDAMLE_multidt(inputarr_D,BGcurve_interp_D, Numberofframes,Frametimelist,...
+                inputAnaDDA,rangeD_alldtbins,fitspecies_singledtbin{1}, fixedspecies_singledtbin{1}, ...
+                (((Dfixed_singledtbin{dt}(1)))), fixedparameters,indexfittingparameters,fx,fy,maxDindtracking,...
+                frequency,size_dt,(locerrorpdfcorrected_singledtbin),output_BG_alldt_D,bgbinningnr,fitWithBleach,verbose,callfromUI,varargin);
+    
+    %         keyboard
+    %             %%
+    %             figure(92);clf(92);
+    %             histogram(inputarr_D(1:size_dt(1)),logspace((-4),log10(3),100))
+    %             hold on
+    %             plot(BGcurve_interp_D{1})
+    %             set(gca,'XScale','log')
+            %%
+            %Change parameters and lower/upper bound in case we fit with bleach
+            %kinetics rather than fully random BG values
+            if fitWithBleach
+                [startparam, lowerbound, upperbound] = changeFitParamsBleach([0.08,0.0001,0.5],startparam,lowerbound,upperbound,'aDDA');
+            end
+    
+            %Perform anaDDA MLE fit
+            [parameters] = mle(Dlistdata, 'pdf',pdf_FF_aDDA,'start',startparam,'LowerBound',lowerbound,'UpperBound',upperbound,'Options',mleoptions);
+            %Calculate convindence interval via coveriance matrix
+            acov = mlecov(parameters,Dlistdata,'pdf',pdf_FF_aDDA);
+            se = sqrt(diag(acov))';
+            %Calculate 95pct confidence interval
+            alpha = 1-0.95;
+            probs = [alpha/2; 1-alpha/2];
+            phat = parameters';
+            pci = norminv(repmat(probs,1,numel(phat)),[phat; phat],[se; se]);
+            parametersCI = pci;
         end
-
-        % %Set the MLEoptions
-        mleoptions = TARDIS_setMLEoptions('FF');
-
-        if performestimationfit == 0
-            startparam = [str2num(settingsTARDIS.start_aDDA) fliplr(bgratios)]';
-            paramEsts = [0 0 0];
-            HOfitCI = [0 0 0];
-        else
-            startparam = [paramEsts(1:3)' fliplr(bgratios)]';
-        end
-        lowerbound = [lb_aDDA ones(1,max(dt_arr))*0]';
-        upperbound = [ub_aDDA ones(1,max(dt_arr))*1]';
-
-        %Create anaDDA custom PDF
-        pdf_FF_aDDA = @(Dlistdata,varargin) pdfAnaDDAMLE_multidt(inputarr_D,BGcurve_interp_D, Numberofframes,Frametimelist,...
-            inputAnaDDA,rangeD_alldtbins,fitspecies_singledtbin{1}, fixedspecies_singledtbin{1}, ...
-            (((Dfixed_singledtbin{dt}(1)))), fixedparameters,indexfittingparameters,fx,fy,maxDindtracking,...
-            frequency,size_dt,(locerrorpdfcorrected_singledtbin),output_BG_alldt_D,bgbinningnr,fitWithBleach,verbose,callfromUI,varargin);
-
-%         keyboard
-%             %%
-%             figure(92);clf(92);
-%             histogram(inputarr_D(1:size_dt(1)),logspace((-4),log10(3),100))
-%             hold on
-%             plot(BGcurve_interp_D{1})
-%             set(gca,'XScale','log')
-        %%
-        %Change parameters and lower/upper bound in case we fit with bleach
-        %kinetics rather than fully random BG values
-        if fitWithBleach
-            [startparam, lowerbound, upperbound] = changeFitParamsBleach([0.08,0.0001,0.5],startparam,lowerbound,upperbound,'aDDA');
-        end
-
-        %Perform anaDDA MLE fit
-        [parameters] = mle(Dlistdata, 'pdf',pdf_FF_aDDA,'start',startparam,'LowerBound',lowerbound,'UpperBound',upperbound,'Options',mleoptions);
-        %Calculate convindence interval via coveriance matrix
-        acov = mlecov(parameters,Dlistdata,'pdf',pdf_FF_aDDA);
-        se = sqrt(diag(acov))';
-        %Calculate 95pct confidence interval
-        alpha = 1-0.95;
-        probs = [alpha/2; 1-alpha/2];
-        phat = parameters';
-        pci = norminv(repmat(probs,1,numel(phat)),[phat; phat],[se; se]);
-        parametersCI = pci;
+    else
+        %% Custom PDF
+        [parameters, parametersCI] = TARDIS_customPDF_wrapper(customPDF, inputarr, bgratios, linorlogBGsubtract, BGcurve_interp,output_BG_alldt,pdfSettings, eval(customPDF_start), eval(customPDF_lower), eval(customPDF_upper), callfromUI);
     end
     %% Visualise results from MLE
     if populations > 0
@@ -922,7 +928,7 @@ if performsecondfit
             %             Visualisation_FF('','',size_dt,JDarrSignalCell,xdataplot,BGcurve_interp_vis,parameters,fitWithBleach,populations,'log',Visualisation_FF_outputCell.extraoutput);
         end
 
-    else%anaDDA
+    elseif customPDF == 0 %anaDDA
         [~,anaDDAvisInfoFF.visual] = pdfAnaDDAMLE_multidt(inputarr_D,BGcurve_interp_D, Numberofframes,ones(size(inputarr_D))*frame_time,...
             inputAnaDDA,rangeD_alldtbins,fitspecies_singledtbin{1}, fixedspecies_singledtbin{1}, ...
             (((Dfixed_singledtbin{dt}(1)))), fixedparameters,indexfittingparameters,fx,fy,maxDindtracking,...
@@ -993,6 +999,64 @@ if performsecondfit
         %         Visualisation_FF_outputCell.extraoutput.linvis.BGcurve_interplin_D = interpolate_BGCurve(maxdist,minlogpoint,bgbinningnr,bgbinningnr,JDarrBG);
         %         Visualisation_FF_outputCell.extraoutput.logvis.xdataplotlin = repmat(logspace(log10(minlogpoint),log10(maxdist),bgbinningnr+1),1,size(size_dt,2))';
 
+    elseif customPDF ~= 0
+        %Need a few empty parameters as output
+        paramEsts=[];
+        HOfitCI = [];
+
+        %Probably need to change something here for visualisation down the
+        %line
+        figurebinnr = settingsTARDIS.bgbinningnr;
+        maxdtbins = max(dt_arr);
+        xdataplotsingledt = [linspace(0,maxdist,(figurebinnr+1))]'; %Create bins used for visualisation, based on figurebinnr
+        xdataplot = repmat(xdataplotsingledt,maxdtbins,1); %Extend these bins for every dtbin, and put them below each other
+        size_dt = ones(1,maxdtbins)*(figurebinnr+1); %Make a 1-by-dt array, each holding the size of the bins, to later split up xdataplot again
+
+        %Always linear BGcurve interp for visualisation
+        BGcurve_interp_vis = interpolate_BGCurve(maxdist,bgbinningnr,(maxdist/bgbinningnr),JDarrBG);
+        output_BG_alldt = pdfBGFunction(xdataplot,BGcurve_interp_vis); %Get BG values for all x positions (repeating for dt positions)
+        %Get signal values for all x positions and all dt positions
+        pdfSettings.verbose = 0;
+        pdfSettings.size_dt = size_dt;
+        [~,extraoutput] =  CustomPDFwithBG(xdataplot,BGcurve_interp_vis,output_BG_alldt,pdfSettings,callfromUI,customPDF,{parameters});
+%         [~,extraoutput] = pdfBGwithPops(xdataplot,BGcurve_interp_vis,output_BG_alldt,pdfSettings,callfromUI,{parameters});
+        %Save visualisation output for later out-script use
+        visualisationinfo.size_dt = size_dt;
+        visualisationinfo.JDarrSignalCell = JDarrSignalCell;
+        visualisationinfo.xdataplot = xdataplot;
+        visualisationinfo.BGcurve_interp = BGcurve_interp_vis;
+        visualisationinfo.extraoutput = extraoutput;
+        visualisationinfo.frame_time = frame_time;
+        visualisationinfo.fixRatios2pop = fixRatios2pop;
+
+        Visualisation_FF_outputCell.size_dt = size_dt;
+        Visualisation_FF_outputCell.poslist = poslist;
+        Visualisation_FF_outputCell.JDarrSignalCell = JDarrSignalCell;
+        Visualisation_FF_outputCell.xdataplot = xdataplot;
+        Visualisation_FF_outputCell.BGcurve_interp = BGcurve_interp_vis;
+        Visualisation_FF_outputCell.FFparameters = parameters;
+        Visualisation_FF_outputCell.populations = populations;
+        Visualisation_FF_outputCell.fitWithBleach = fitWithBleach;
+        Visualisation_FF_outputCell.fixRatios2pop = fixRatios2pop;
+        Visualisation_FF_outputCell.linorlog = settingsTARDIS.linorlogvis;
+        Visualisation_FF_outputCell.strobo_frame_time = pdfSettings.strobo_frame_time;
+        Visualisation_FF_outputCell.extraoutput.main = extraoutput;
+        Visualisation_FF_outputCell.extraoutput.loc_unc = loc_unc;
+        Visualisation_FF_outputCell.extraoutput.frame_time = frame_time;
+        Visualisation_FF_outputCell.extraoutput.strobo_frame_time = pdfSettings.strobo_frame_time;
+        Visualisation_FF_outputCell.extraoutput.fixRatios2pop = fixRatios2pop;
+        Visualisation_FF_outputCell.extraoutput.logvis.minlogval = minlogpoint;
+        Visualisation_FF_outputCell.extraoutput.logvis.BGcurve_interplog = interpolate_BGCurve_log(maxdist,minlogpoint,bgbinningnr,bgbinningnr,JDarrBG);
+        Visualisation_FF_outputCell.extraoutput.logvis.xdataplotlog = repmat(logspace(log10(minlogpoint),log10(maxdist),bgbinningnr+1),1,size(size_dt,2))';
+
+        Visualisation_FF_outputCell.customPDF = customPDF;
+
+        %Start actual visualistion
+        if visualisationMLEIntFit
+            Visualisation_FF_customPDF('','',Visualisation_FF_outputCell);
+            %             Visualisation_FF('','',size_dt,JDarrSignalCell,xdataplot,BGcurve_interp_vis,parameters,fitWithBleach,populations,'log',Visualisation_FF_outputCell.extraoutput);
+        end
+%         Visualisation_FF_outputCell=[];
     end
 else
     disp('No second fit being performed (settings.performsecondfit set to false)')

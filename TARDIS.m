@@ -1,9 +1,14 @@
 % -------------------------------------------------------------------------
 % Main wrapper for TARDIS (temporal analysis of relative distances in sptPALM)
 % Read about TARDIS here:
-% https://github.com/kjamartens/TARDIS
+% https://github.com/kjamartens/TARDIS_public
 % Koen J.A. Martens et al., 2022.
+%
+% Example of TARDIS script use: 
+% Main/Call_TARDIS_example.m
+%
 % -------------------------------------------------------------------------
+
 function [parameters, parametersCI, paramEsts, HOfitCI, tottime, time, bgarr, truthoffsetpartial, Visualisation_HO_outputCell,Visualisation_FF_outputCell,anaDDAvisInfoHO,anaDDAvisInfoFF,JDonlydata,SwiftParameters] =...
     TARDIS(poslist,settingsTARDIS)
 
@@ -14,5 +19,4 @@ addpath(genpath(fileparts(mfilename('fullpath'))));
 % Keeping original name for legacy reasons
 [parameters, parametersCI, paramEsts, HOfitCI, tottime, time, bgarr, truthoffsetpartial, Visualisation_HO_outputCell,Visualisation_FF_outputCell,anaDDAvisInfoHO,anaDDAvisInfoFF,JDonlydata,SwiftParameters] = ...
     URDA_HO_FF_function(poslist,settingsTARDIS);
-
 end

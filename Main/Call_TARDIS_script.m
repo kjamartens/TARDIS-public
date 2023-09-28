@@ -1,3 +1,4 @@
+%Example on how to use TARDIS in a script
 TARDISsettings = GenerateTARDISsettings();
 
 %Take a second look at the most crucial settings
@@ -10,22 +11,24 @@ TARDISsettings.dt_arr = [1 2 3]; %- %which dt's are used to get signal
 TARDISsettings.performsecondfit = 1; %Perform second (better) MLE fit
 TARDISsettings.performestimationfit = 0; %Perform estimation
 TARDISsettings.maxdist = 3e-6;
-
 TARDISsettings.visualisationMLEIntFit = 1; %Visualisation of MLE fit at the end
 
 TARDISsettings.debug = 0; %Debug info
 TARDISsettings.vis = TARDISsettings.debug; %Visibility of BG subtracting results
 TARDISsettings.fitvisHO = TARDISsettings.debug; %Visibility of fit results
 TARDISsettings.bgbinningnr = 100;
-fileloc = '\\IFMB-NAS\AG Endesfelder\Data\Koen\Articles\2020_relativeDisplacementTracking\Data_FINAL_202201\1pop_Density\TestCopy\nocutoff_singlePop_densMult10_1_locum2_DfreeMult10_10_um2s.mat';
-% fileloc = '\\ifmb-nas\ag endesfelder\Data\Koen\Articles\2020_relativeDisplacementTracking\Data_FINAL_202201\aDDA_Noise_Offset_Bias\aDDANoise_20_20_2_oLoc_0_sLoc_0_it_1_2kframes.mat'
+
+%Specify file location
+fileloc = '.\Example_data\Single_Population_1um2s_lowDensity.mat';
+%Load the data and store as poslist
 t = load(fileloc,'pos');
 poslist = t.pos;
-%
-[parameters, parametersCI, paramEsts, HOfitCI, tottime, time, bgarr, truthoffsetpartial, Visualisation_HO_outputCell,Visualisation_FF_outputCell,anaDDAvisInfoHO,anaDDAvisInfoFF,JDonlydata] = ...
-    URDA_HO_FF_function(poslist,TARDISsettings);
 
-%%
+%Run TARDIS
+[parameters, parametersCI, paramEsts, HOfitCI, tottime, time, bgarr, truthoffsetpartial, Visualisation_HO_outputCell,Visualisation_FF_outputCell,anaDDAvisInfoHO,anaDDAvisInfoFF,JDonlydata] = ...
+    TARDIS(poslist,TARDISsettings);
+
+%% Data visualisation/showcasing
 %Create final fit visualisation
 Visualisation_FF('','',Visualisation_FF_outputCell);
 
