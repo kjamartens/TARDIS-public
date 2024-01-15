@@ -7,7 +7,7 @@ TARDIS (Temporal Analysis of Relative Distances) is a software created to get un
 [Martens et al., “Temporal analysis of relative distances (TARDIS) is a robust, parameter-free alternative to single-particle tracking”, Nature Methods (2024)](https://rdcu.be/dv1sr)
 
 ## Getting started
-The latest release can be found [here](https://github.com/kjamartens/TARDIS-public/releases/tag/release_v120)
+The latest release can be found [here](https://github.com/kjamartens/TARDIS-public/releases/tag/release_v121)
 
 TARDIS can generally be run via a graphical user-interface or as a standalone set of scripts in MATLAB. 
 For a quick overview of the TARDIS software with graphical user-interface, read ["Getting started with TARDIS"](./Getting_started_with_TARDIS_v120.pdf).
