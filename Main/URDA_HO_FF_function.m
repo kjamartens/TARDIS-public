@@ -151,7 +151,9 @@ ub_aDDA = eval(settingsTARDIS.ub_adda);
 try
     [histInfo,time,bgarr,bgratios,JDarrBG,JDarrSignalCell,signalCurve_interp,stepsizearraytrue,BGarrtotsize] = ...
         MLE_BG_subtraction_HistObtain_function(poslist,frame_dist_BG,maxdist,dt_arr,bgbinningnr,startpointBG,linorlogBGsubtract,minlogpoint,0,verbose,callfromUI,'AlternativeLookupPosList',AlternativeLookupPosList);%,poslistunordered);
-catch
+catch e
+    %Print error message, Issue1 bugfix
+    fprintf(1,'There was an error! The message was:\n%s\n',e.message);
     %     keyboard
 end
 % keyboard
