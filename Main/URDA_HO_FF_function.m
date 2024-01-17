@@ -22,6 +22,10 @@ if ~any(strcmp({MATLABinfo.Name}, 'Optimization Toolbox'))
     warning('Optimization Toolbox not found!');
     error('Optimization Toolbox not installed! Install it via Home - Add-Ons, or check mathworks.com/products/optimization.html')
 end
+if ~any(strcmp({MATLABinfo.Name}, 'Statistics and Machine Learning Toolbox'))
+    warning('Statistics and Machine Learning Toolbox not found!');
+    error('Statistics and Machine Learning Toolbox not installed! Install it via Home - Add-Ons, or check mathworks.com/products/statistics.html')
+end
 clear MATLABinfo
 %%
 tic;
