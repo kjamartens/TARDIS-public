@@ -35,8 +35,8 @@ try
     xloclog(ceil(xloclog)>size(BGcurve_interp,1)) = size(BGcurve_interp,1);
     ydata_BG_interpfound = (BGcurve_interp(floor(xloclog),2).*(1-mod(xloclog,1))+...
         BGcurve_interp(ceil(xloclog),2).*mod(xloclog,1))./xdata;
-catch
-    keyboard %Error catching
+catch e%Print error message, Issue2 bugfix
+    fprintf(2,'There was an error! The message was:\n%s\n',e.message);
 end
 
 output = ydata_BG_interpfound;
