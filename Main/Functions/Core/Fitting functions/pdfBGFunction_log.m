@@ -36,7 +36,7 @@ try
     ydata_BG_interpfound = (BGcurve_interp(floor(xloclog),2).*(1-mod(xloclog,1))+...
         BGcurve_interp(ceil(xloclog),2).*mod(xloclog,1))./xdata;
 catch e%Print error message, Issue2 bugfix
-    fprintf(2,'There was an error! The message was:\n%s\n',e.message);
+    fprintf(2,'There was an error (bugfix2)! The message was:\n%s\n',e.message);
 end
 
 output = ydata_BG_interpfound;

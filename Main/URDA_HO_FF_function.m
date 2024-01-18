@@ -277,7 +277,16 @@ if populations > 0 %If populations are meant to be fitted rather than anaDDA
 elseif populations == 0 %Else fit anaDDA to the data
     %Import information for anaDDA2.0
     %         filename_temp = fullfile('C:\Users\Koen Martens\Documents\Martens_WorkingDirectory\Scientific\MATLAB\TARDIS_testingADDA20', 'locdisttable.mat');
-    load('.\Main\Functions/anaDDA_requiredScripts_V20/locdisttable.mat'); %Loads pre-generated correlated localization error distributions
+    try
+        %When running from MATLAB, do this...
+        load('.\Main\Functions/anaDDA_requiredScripts_V20/locdisttable.mat'); %Loads pre-generated correlated localization error distributions
+    catch
+        %Otherwise, when installed as exe, do this...
+        tempA = load('locdisttable.mat','locdist');
+        locdist = tempA.locdist;
+        tempB = load('locdisttable.mat','rangex'); %Loads pre-generated correlated localization error distributions
+        rangex = tempB.rangex;
+    end
     settingsTARDIS.inputAnaDDA.rangex = rangex; %rangex loaded line above
     for k = 2:8
         settingsTARDIS.inputAnaDDA.locdist{k} = griddedInterpolant(rangex(:,k),locdist(:,k));
@@ -946,7 +955,7 @@ if performsecondfit
         xdataplotsingledt = [linspace(0,maxdist,(figurebinnr+1))]'; %Create bins used for visualisation, based on figurebinnr
         xdataplot = repmat(xdataplotsingledt,maxdtbins,1); %Extend these bins for every dtbin, and put them below each other
         size_dt = ones(1,maxdtbins)*(figurebinnr+1); %Make a 1-by-dt array, each holding the size of the bins, to later split up xdataplot again
-        output_BG_alldt = pdfBGFunction_log(xdataplot,BGcurve_interp); %Get BG values for all x positions (repeating for dt positions)
+        %output_BG_alldt = pdfBGFunction_log(xdataplot,BGcurve_interp); %Get BG values for all x positions (repeating for dt positions)
 
         %         output_BG_alldt = pdfBGFunction(xdataplot,BGcurve_interp); %Get BG values for all x positions (repeating for dt positions)
         %         %Get signal values for all x positions and all dt positions

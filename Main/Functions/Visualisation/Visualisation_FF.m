@@ -15,6 +15,15 @@ FFparameters = visInfoCell.FFparameters;
 fitwithBleach = visInfoCell.fitWithBleach;
 populations = visInfoCell.populations;
 linorlog = visInfoCell.linorlog;
+
+%Fix hard-coding log in case of anaDDA
+if populations == 0 %anaDDA
+    if linorlog == 'lin'
+        fprintf('AnaDDA does not do linear visualisation - switching to logarithmic instead');
+        linorlog = 'log';
+    end
+end
+
 extraoutput = visInfoCell.extraoutput;
 %% Check if JDarrSignalCell is stored, if not, re-calculate it
 if isempty(JDarrSignalCell)
