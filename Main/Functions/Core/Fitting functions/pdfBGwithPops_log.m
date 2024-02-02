@@ -76,8 +76,8 @@ if populations == 2
                 f_pop_1(dt) = arr_parameters(3);
             end
         end
-    else %if they are not fixed, base it on dt
-        f_pop_1 = arr_parameters(3:3+size(size_dt,2)-1);
+    else %if they are not fixed
+        f_pop_1 = arr_parameters(3:end);
     end
 end
 
